@@ -160,7 +160,6 @@ returning the user's link row, or ``None``.
 
    {%- set uid = 'me' if request.user.id == user.id else user.id -%}
    <form method="post" action="{{ url_for('myscrobbler.link', uid = uid) }}">
-     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
      ...
    </form>
 

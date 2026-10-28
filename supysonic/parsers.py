@@ -47,7 +47,14 @@ def _check_bounds(value, min, max):
         raise ValueError(f"{value} is lower than the minimum value of {min}")
     if max is not None and value > max:
         raise ValueError(f"{value} is greater than the maximum value of {max}")
+    return value
 
+
+def _clip_bounds(value, min, max):
+    if min is not None and value < min:
+        return min
+    if max is not None and value > max:
+        return max
     return value
 
 
@@ -66,7 +73,8 @@ def parse_int(value, min=None, max=None):
     except ValueError as e:
         raise ValueError("not an integer") from e
 
-    return _check_bounds(i, min, max)
+    return _clip_bounds(i, min, max)
+    # return _check_bounds(i, min, max)
 
 
 def parse_float(value, min=None, max=None):
