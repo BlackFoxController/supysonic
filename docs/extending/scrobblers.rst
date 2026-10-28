@@ -120,9 +120,9 @@ should take a ``uid`` and be decorated with ``me_or_uuid``, which resolves it
 to the matching user and hands it over as a second argument. ``me`` is the
 logged-in user; any other id is reserved to admins::
 
-   from flask import flash, redirect, url_for
+   from quart import flash, redirect, url_for
 
-   from supysonic.app.flask import app_layer
+   from supysonic.app.quart import app_layer
    from supysonic.frontend._helpers import me_or_uuid
    from supysonic.scrobblers.exceptions import ScrobblerError
 

@@ -14,7 +14,7 @@ from quart import Quart
 # from quart_wtf.csrf import CSRFProtect
 
 from .api import get_api_blueprint
-from .app.flask import SupysonicFlaskAppLayer
+from .app.quart import SupysonicFlaskAppLayer
 from .config import Config
 from .frontend import get_frontend_blueprint
 from .logs import setup_logging
