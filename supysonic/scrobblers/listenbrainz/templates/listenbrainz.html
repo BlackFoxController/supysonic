@@ -10,7 +10,6 @@
 {%- set uid = 'me' if request.user.id == user.id else user.id -%}
 {%- set link = scrobbler.link(user) -%}
 <form method="post" action="{% if link %}{{ url_for('listenbrainz.unlink', uid = uid) }}{% else %}{{ url_for('listenbrainz.link', uid = uid) }}{% endif %}">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <div class="input-group">
     <span class="input-group-text">ListenBrainz status</span>
     {% if link %}

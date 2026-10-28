@@ -9,8 +9,9 @@
 
 import mimetypes
 
-from flask import Flask
-from flask_wtf import CSRFProtect
+from quart import Quart
+# from flask_wtf import CSRFProtect
+# from quart_wtf.csrf import CSRFProtect
 
 from .api import get_api_blueprint
 from .app.flask import SupysonicFlaskAppLayer
@@ -21,7 +22,7 @@ from .logs import setup_logging
 
 def create_application(config=None, testing=False):
     # Flask!
-    app = Flask(__name__)
+    app = Quart(__name__)
 
     # Flask's own settings. The Supysonic config is a separate object, reachable
     # through the app layer, and deliberately not merged into app.config
@@ -42,8 +43,8 @@ def create_application(config=None, testing=False):
 
     SupysonicFlaskAppLayer.register_on(app, config)
 
-    csrf = CSRFProtect()
-    csrf.init_app(app)
+    # csrf = CSRFProtect()
+    # csrf.init_app(app)
 
     # Mount app sections
     if config.webapp.mount_webui:
@@ -53,6 +54,6 @@ def create_application(config=None, testing=False):
         app.register_blueprint(api, url_prefix="/rest")
         # The Subsonic API has its own auth and is used by non-browser clients
         # that don't send CSRF tokens; exempt it from CSRF protection.
-        csrf.exempt(api)
+        # csrf.exempt(api)
 
     return app

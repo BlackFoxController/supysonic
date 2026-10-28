@@ -5,22 +5,26 @@
 #
 # Distributed under terms of the GNU AGPLv3 license.
 
-from flask import request
+from quart import request, abort, make_response, Response
 from werkzeug.exceptions import HTTPException
 
-from ..app.flask import app_layer
+from ..app.quart import app_layer
 
-
+# todo: somehow I can't get proper formatted response from the exceptions
 class SubsonicAPIException(HTTPException):
     code = 400
     api_code = None
     message = None
 
     def get_response(self, environ=None, scope=None):
-        rv = request.formatter.error(self.api_code, self.message)
-        if app_layer.config.webapp.use_http_error_status:
-            rv.status_code = self.code
+        rv = Response(self.message)
+        # rv.mimetype = "text/xml"
         return rv
+
+        # rv = await request.formatter.error(self.api_code, self.message)
+        # if app_layer.config.webapp.use_http_error_status:
+        #     rv.status_code = self.code
+        # return rv
 
     def __str__(self):
         code = self.api_code if self.api_code is not None else "??"

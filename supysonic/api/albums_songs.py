@@ -7,7 +7,7 @@
 
 from datetime import datetime, timedelta
 
-from flask import request
+from quart import request
 from peewee import JOIN, fn
 
 from ..db.models import (
@@ -35,24 +35,26 @@ from ._helpers import (
 )
 
 
-def _year_range():
+async def _year_range():
     """Read the required fromYear/toYear pair of the 'byYear' album lists.
 
     Returns a (low, high, descending) tuple: Subsonic reverses the ordering when
     toYear is before fromYear.
     """
-    startyear = get_int("fromYear", required=True)
-    endyear = get_int("toYear", required=True)
+    startyear = await get_int("fromYear", required=True)
+    endyear = await get_int("toYear", required=True)
     return min(startyear, endyear), max(startyear, endyear), endyear < startyear
 
 
 @api_routing("/getRandomSongs")
-def rand_songs():
-    genre = request.values.get("genre")
-    size = get_int("size", 10, min=0, max=MAX_LIST_SIZE)
-    fromYear = get_int("fromYear")
-    toYear = get_int("toYear")
-    root = get_music_folder()
+async def rand_songs():
+    req_values = await request.values
+
+    genre = req_values.get("genre")
+    size = await get_int("size", 10, min=0, max=MAX_LIST_SIZE)
+    fromYear = await get_int("fromYear")
+    toYear = await get_int("toYear")
+    root = await get_music_folder()
 
     query = Track.select()
     if fromYear:
@@ -68,18 +70,20 @@ def rand_songs():
     ctx = serialization_context()
     ctx.add_tracks(tracks)
 
-    return request.formatter(
+    return await request.formatter(
         "randomSongs",
         {"song": [t.as_subsonic_child(ctx) for t in tracks]},
     )
 
 
 @api_routing("/getAlbumList")
-def album_list():
-    ltype = request.values["type"]
+async def album_list():
+    req_values = await request.values
 
-    size, offset = get_paging("size", default=10)
-    root = get_music_folder()
+    ltype = req_values["type"]
+
+    size, offset = await get_paging("size", default=10)
+    root = await get_music_folder()
 
     query = Folder.select().join(Track, on=Track.folder).switch().group_by(Folder.id)
     if root is not None:
@@ -119,14 +123,14 @@ def album_list():
             .order_by(parent.name, Folder.name, Folder.id)
         )
     elif ltype == "byYear":
-        low, high, descending = _year_range()
+        low, high, descending = await _year_range()
         query = query.where(Track.year.between(low, high))
         order = fn.min(Track.year)
         if descending:
             order = order.desc()
         query = query.order_by(order, Folder.id)
     elif ltype == "byGenre":
-        genre = request.values["genre"]
+        genre = req_values["genre"]
         query = query.where(Track.genre == genre).order_by(Folder.name, Folder.id)
     else:
         raise GenericError("Unknown search type")
@@ -134,18 +138,20 @@ def album_list():
     folders = list(query.limit(size).offset(offset))
     ctx = serialization_context()
     ctx.add_folders(folders)
-    return request.formatter(
+    return await request.formatter(
         "albumList",
         {"album": [f.as_subsonic_child(ctx) for f in folders]},
     )
 
 
 @api_routing("/getAlbumList2")
-def album_list_id3():
-    ltype = request.values["type"]
+async def album_list_id3():
+    req_values = await request.values
 
-    size, offset = get_paging("size", default=10)
-    root = get_music_folder()
+    ltype = req_values["type"]
+
+    size, offset = await get_paging("size", default=10)
+    root = await get_music_folder()
 
     query = Album.select().join(Track).group_by(Album.id)
     if root is not None:
@@ -181,14 +187,14 @@ def album_list_id3():
             .order_by(Artist.name, Album.name, Album.id)
         )
     elif ltype == "byYear":
-        low, high, descending = _year_range()
+        low, high, descending = await _year_range()
         query = query.having(fn.min(Track.year).between(low, high))
         order = fn.min(Track.year)
         if descending:
             order = order.desc()
         query = query.order_by(order, Album.id)
     elif ltype == "byGenre":
-        genre = request.values["genre"]
+        genre = req_values["genre"]
         query = query.where(Track.genre == genre).order_by(Album.name, Album.id)
     else:
         raise GenericError("Unknown search type")
@@ -196,18 +202,20 @@ def album_list_id3():
     albums = list(query.limit(size).offset(offset))
     ctx = serialization_context()
     ctx.add_albums(albums)
-    return request.formatter(
+    return await request.formatter(
         "albumList2",
         {"album": [a.as_subsonic_album(ctx) for a in albums]},
     )
 
 
 @api_routing("/getSongsByGenre")
-def songs_by_genre():
-    genre = request.values["genre"]
+async def songs_by_genre():
+    req_values = await request.values
 
-    count, offset = get_paging("count", default=10)
-    root = get_music_folder()
+    genre = req_values["genre"]
+
+    count, offset = await get_paging("count", default=10)
+    root = await get_music_folder()
 
     # Joins are many-to-one, they don't duplicate rows. Ordering mirrors
     # Track.sort_key, with the primary key as a tiebreaker so paging is stable.
@@ -227,14 +235,14 @@ def songs_by_genre():
     tracks = list(query.limit(count).offset(offset))
     ctx = serialization_context()
     ctx.add_tracks(tracks)
-    return request.formatter(
+    return await request.formatter(
         "songsByGenre",
         {"song": [t.as_subsonic_child(ctx) for t in tracks]},
     )
 
 
 @api_routing("/getNowPlaying")
-def now_playing():
+async def now_playing():
     query = (
         User.select(User, Track)
         .join(Track, on=User.last_play)
@@ -248,7 +256,7 @@ def now_playing():
     ctx = serialization_context()
     ctx.add_tracks([u.last_play for u in users])
 
-    return request.formatter(
+    return await request.formatter(
         "nowPlaying",
         {
             "entry": [
@@ -265,8 +273,8 @@ def now_playing():
 
 
 @api_routing("/getStarred")
-def get_starred():
-    root = get_music_folder()
+async def get_starred():
+    root = await get_music_folder()
 
     folders = (
         StarredFolder.select(StarredFolder.starred, Folder)
@@ -297,7 +305,7 @@ def get_starred():
     ctx.add_folders(artist_folders + album_folders)
     ctx.add_tracks(tracks)
 
-    return request.formatter(
+    return await request.formatter(
         "starred",
         {
             "artist": [f.as_subsonic_artist(ctx) for f in artist_folders],
@@ -308,8 +316,8 @@ def get_starred():
 
 
 @api_routing("/getStarred2")
-def get_starred_id3():
-    root = get_music_folder()
+async def get_starred_id3():
+    root = await get_music_folder()
 
     arq = (
         StarredArtist.select(StarredArtist.starred, Artist)
@@ -341,7 +349,7 @@ def get_starred_id3():
     ctx.add_albums(albums)
     ctx.add_tracks(tracks)
 
-    return request.formatter(
+    return await request.formatter(
         "starred2",
         {
             "artist": [a.as_subsonic_artist(ctx) for a in artists],

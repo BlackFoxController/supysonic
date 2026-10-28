@@ -7,9 +7,9 @@
 
 import time
 
-from flask import request
+from quart import request
 
-from ..app.flask import app_layer
+from ..app.quart import app_layer
 from ..db import (
     Album,
     Artist,
@@ -107,8 +107,11 @@ def _star_one(func, resolve, eid, errors):
         errors.append(e)
 
 
-def handle_star_request(func):
-    id, albumId, artistId = map(request.values.getlist, ("id", "albumId", "artistId"))
+async def handle_star_request(func):
+    req_values = await request.values
+
+    id, albumId, artistId = map(req_values.getlist, ("id", "albumId", "artistId"))
+    # id, albumId, artistId = map(request.values.getlist, ("id", "albumId", "artistId"))
 
     if not id and not albumId and not artistId:
         raise MissingParameter("id, albumId or artistId")
@@ -123,23 +126,25 @@ def handle_star_request(func):
 
     if errors:
         raise AggregateException(errors)
-    return request.formatter.empty
+    return await request.formatter.empty
 
 
 @api_routing("/star")
-def star():
-    return handle_star_request(star_single)
+async def star():
+    return await handle_star_request(star_single)
 
 
 @api_routing("/unstar")
-def unstar():
-    return handle_star_request(unstar_single)
+async def unstar():
+    return await handle_star_request(unstar_single)
 
 
 @api_routing("/setRating")
-def rate():
-    id = request.values["id"]
-    rating = get_int("rating", min=0, max=5, required=True)
+async def rate():
+    req_values = await request.values
+
+    id = req_values["id"]
+    rating = await get_int("rating", min=0, max=5, required=True)
 
     cls, rid = resolve_child_id(id)
     rating_cls = _RATING_CLASSES[cls]
@@ -157,15 +162,15 @@ def rate():
         except rating_cls.DoesNotExist:
             rating_cls.create(user=request.user, rated=rated, rating=rating)
 
-    return request.formatter.empty
+    return await request.formatter.empty
 
 
 @api_routing("/scrobble")
-def scrobble():
-    res = get_entity(Track)
-    t = get_int("time", min=0, max=MAX_TIMESTAMP_MS)
+async def scrobble():
+    res = await get_entity(Track)
+    t = await get_int("time", min=0, max=MAX_TIMESTAMP_MS)
     t = t / 1000 if t is not None else int(time.time())
-    submission = get_bool("submission", True)
+    submission = await get_bool("submission", True)
 
     client = request.client.client_name
     for scrobbler in app_layer.scrobblers:
@@ -174,4 +179,4 @@ def scrobble():
         else:
             scrobbler.now_playing(request.user, res, client)
 
-    return request.formatter.empty
+    return await request.formatter.empty

@@ -7,7 +7,7 @@
 
 from datetime import datetime
 
-from flask import request
+from quart import request
 
 from ..db.models import Album, Artist, Folder, Track
 from ._blueprint import api_routing
@@ -19,7 +19,6 @@ from ._helpers import (
     get_paging,
     serialization_context,
 )
-
 
 def _match_list(items):
     """Serialize a mixed list of Folders/Tracks for the legacy search result,
@@ -42,19 +41,21 @@ def _paged(query, count, offset, *order_by):
     return list(query.order_by(*order_by).limit(count).offset(offset))
 
 
-def _search_result(tag, artist, album, song):
+async def _search_result(tag, artist, album, song):
     """Format a search2/search3 response from its serialized result sets."""
-    return request.formatter(tag, {"artist": artist, "album": album, "song": song})
+    return await request.formatter(tag, {"artist": artist, "album": album, "song": song})
 
 
 @api_routing("/search")
-def old_search():
+async def old_search():
+    req_values = await request.values
+
     artist, album, title, anyf = map(
-        request.values.get, ("artist", "album", "title", "any")
+        req_values.get, ("artist", "album", "title", "any")
     )
 
-    count, offset = get_paging("count")
-    newer_than = get_int("newerThan", 0, min=0, max=MAX_TIMESTAMP_MS)
+    count, offset = await get_paging("count")
+    newer_than = await get_int("newerThan", 0, min=0, max=MAX_TIMESTAMP_MS)
     min_date = datetime.fromtimestamp(newer_than / 1000)
 
     if artist:
@@ -99,7 +100,7 @@ def old_search():
             tend = offset + count - fcount
             res = res[:] + tracks[toff:tend][:]
 
-        return request.formatter(
+        return await request.formatter(
             "searchResult",
             {
                 "totalHits": folders.count() + tracks.count(),
@@ -110,7 +111,7 @@ def old_search():
     else:
         raise MissingParameter("search")
 
-    return request.formatter(
+    return await request.formatter(
         "searchResult",
         {
             "totalHits": query.count(),
@@ -121,13 +122,15 @@ def old_search():
 
 
 @api_routing("/search2")
-def new_search():
-    query = request.values["query"]
+async def new_search():
+    req_values = await request.values
 
-    artist_count, artist_offset = get_paging("artistCount", "artistOffset")
-    album_count, album_offset = get_paging("albumCount", "albumOffset")
-    song_count, song_offset = get_paging("songCount", "songOffset")
-    root = get_music_folder()
+    query = req_values["query"]
+
+    artist_count, artist_offset = await get_paging("artistCount", "artistOffset")
+    album_count, album_offset = await get_paging("albumCount", "albumOffset")
+    song_count, song_offset = await get_paging("songCount", "songOffset")
+    root = await get_music_folder()
 
     Child = Folder.alias()
     artists = (
@@ -167,13 +170,14 @@ def new_search():
 
 
 @api_routing("/search3")
-def search_id3():
-    query = request.values["query"]
+async def search_id3():
+    req_values = await request.values
+    query = req_values["query"]
 
-    artist_count, artist_offset = get_paging("artistCount", "artistOffset")
-    album_count, album_offset = get_paging("albumCount", "albumOffset")
-    song_count, song_offset = get_paging("songCount", "songOffset")
-    root = get_music_folder()
+    artist_count, artist_offset = await get_paging("artistCount", "artistOffset")
+    album_count, album_offset = await get_paging("albumCount", "albumOffset")
+    song_count, song_offset = await get_paging("songCount", "songOffset")
+    root = await get_music_folder()
 
     artists = Artist.select().where(Artist.name.contains(query))
     albums = Album.select().where(Album.name.contains(query))
@@ -185,7 +189,7 @@ def search_id3():
         artists = artists.join(Track).where(Track.root_folder == root).distinct()
         albums = albums.join(Track).where(Track.root_folder == root).distinct()
         songs = songs.where(Track.root_folder == root)
-
+    
     artists = _paged(artists, artist_count, artist_offset, Artist.name, Artist.id)
     albums = _paged(albums, album_count, album_offset, Album.name, Album.id)
     songs = _paged(songs, song_count, song_offset, Track.title, Track.id)
@@ -195,7 +199,7 @@ def search_id3():
     ctx.add_albums(albums)
     ctx.add_tracks(songs)
 
-    return _search_result(
+    return await _search_result(
         "searchResult3",
         [a.as_subsonic_artist(ctx) for a in artists],
         [a.as_subsonic_album(ctx) for a in albums],

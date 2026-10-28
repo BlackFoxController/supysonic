@@ -5,9 +5,9 @@
 #
 # Distributed under terms of the GNU AGPLv3 license.
 
-from flask import request
+from quart import request
 
-from ..app.flask import app_layer
+from ..app.quart import app_layer
 from ..db.models import User
 from ._blueprint import api_routing
 from ._exceptions import Forbidden
@@ -15,21 +15,23 @@ from ._helpers import admin_only, decode_password, get_bool, get_mail
 
 
 @api_routing("/getUser")
-def user_info():
-    username = request.values["username"]
+async def user_info():
+    req_values = await request.values
+
+    username = req_values["username"]
 
     if username != request.user.name and not request.user.admin:
         raise Forbidden()
 
     user = User.get(name=username)
-    return request.formatter("user", user.as_subsonic_user(app_layer.scrobblers))
+    return await request.formatter("user", user.as_subsonic_user(app_layer.scrobblers))
 
 
 @api_routing("/getUsers")
 @admin_only
-def users_info():
+async def users_info():
     scrobblers = app_layer.scrobblers
-    return request.formatter(
+    return await request.formatter(
         "users", {"user": [u.as_subsonic_user(scrobblers) for u in User.select()]}
     )
 
@@ -40,31 +42,37 @@ def get_roles_dict():
 
 @api_routing("/createUser")
 @admin_only
-def user_add():
-    username = request.values["username"]
-    password = request.values["password"]
-    email = get_mail("email")
+async def user_add():
+    req_values = await request.values
+
+    username = req_values["username"]
+    password = req_values["password"]
+    email = await get_mail("email")
     roles = get_roles_dict()
 
     password = decode_password(password)
     app_layer.users.add(username, password, mail=email, **roles)
 
-    return request.formatter.empty
+    return await request.formatter.empty
 
 
 @api_routing("/deleteUser")
 @admin_only
-def user_del():
-    username = request.values["username"]
+async def user_del():
+    req_values = await request.values
+
+    username = req_values["username"]
     app_layer.users.delete_by_name(username)
 
-    return request.formatter.empty
+    return await request.formatter.empty
 
 
 @api_routing("/changePassword")
-def user_changepass():
-    username = request.values["username"]
-    password = request.values["password"]
+async def user_changepass():
+    req_values = await request.values
+
+    username = req_values["username"]
+    password = req_values["password"]
 
     if username != request.user.name and not request.user.admin:
         raise Forbidden()
@@ -72,24 +80,26 @@ def user_changepass():
     password = decode_password(password)
     app_layer.users.change_password2(username, password)
 
-    return request.formatter.empty
+    return await request.formatter.empty
 
 
 @api_routing("/updateUser")
 @admin_only
-def user_edit():
-    username = request.values["username"]
+async def user_edit():
+    req_values = await request.values
+
+    username = req_values["username"]
     user = User.get(name=username)
 
-    if "password" in request.values:
-        password = decode_password(request.values["password"])
+    if "password" in req_values:
+        password = decode_password(req_values["password"])
         app_layer.users.change_password2(user, password)
 
-    admin = get_bool("adminRole")
-    jukebox = get_bool("jukeboxRole")
+    admin = await get_bool("adminRole")
+    jukebox = await get_bool("jukeboxRole")
 
-    if "email" in request.values:
-        user.mail = get_mail("email")
+    if "email" in req_values:
+        user.mail = await get_mail("email")
 
     if admin is not None:
         user.admin = admin
@@ -99,4 +109,4 @@ def user_edit():
 
     user.save()
 
-    return request.formatter.empty
+    return await request.formatter.empty

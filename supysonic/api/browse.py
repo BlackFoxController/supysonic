@@ -8,10 +8,10 @@
 import re
 import string
 
-from flask import request
+from quart import request
 from peewee import fn
 
-from ..app.flask import app_layer
+from ..app.quart import app_layer
 from ..db.models import Album, Artist, Folder, Track
 from ._blueprint import api_routing
 from ._helpers import (
@@ -24,8 +24,8 @@ from ._helpers import (
 
 
 @api_routing("/getMusicFolders")
-def list_folders():
-    return request.formatter(
+async def list_folders():
+    return await request.formatter(
         "musicFolders",
         {
             "musicFolder": [
@@ -78,9 +78,11 @@ def build_indexes(source):
 
 
 @api_routing("/getIndexes")
-def list_indexes():
-    musicFolderId = request.values.get("musicFolderId")
-    ifModifiedSince = get_int("ifModifiedSince", min=0, max=MAX_TIMESTAMP_MS)
+async def list_indexes():
+    req_values = await request.values
+
+    musicFolderId = req_values.get("musicFolderId")
+    ifModifiedSince = await get_int("ifModifiedSince", min=0, max=MAX_TIMESTAMP_MS)
     if ifModifiedSince is not None:
         ifModifiedSince = ifModifiedSince / 1000
 
@@ -91,7 +93,7 @@ def list_indexes():
 
     last_modif = max(f.last_scan for f in folders)
     if ifModifiedSince is not None and last_modif < ifModifiedSince:
-        return request.formatter(
+        return await request.formatter(
             "indexes",
             {
                 "lastModified": last_modif * 1000,
@@ -111,7 +113,7 @@ def list_indexes():
     ctx.add_tracks(children)
 
     indexes = build_indexes(artists)
-    return request.formatter(
+    return await request.formatter(
         "indexes",
         {
             "lastModified": last_modif * 1000,
@@ -135,15 +137,15 @@ def list_indexes():
 
 
 @api_routing("/getMusicDirectory")
-def show_directory():
-    res = get_entity(Folder)
+async def show_directory():
+    res = await get_entity(Folder)
     ctx = serialization_context()
-    return request.formatter("directory", res.as_subsonic_directory(ctx))
+    return await request.formatter("directory", res.as_subsonic_directory(ctx))
 
 
 @api_routing("/getGenres")
-def list_genres():
-    return request.formatter(
+async def list_genres():
+    return await request.formatter(
         "genres",
         {
             "genre": [
@@ -160,8 +162,10 @@ def list_genres():
 
 
 @api_routing("/getArtists")
-def list_artists():
-    mfid = request.values.get("musicFolderId")
+async def list_artists():
+    req_values = await request.values
+
+    mfid = req_values.get("musicFolderId")
 
     query = Artist.select()
     if mfid is not None:
@@ -173,7 +177,7 @@ def list_artists():
     ctx.add_artists(artists)
 
     indexes = build_indexes(artists)
-    return request.formatter(
+    return await request.formatter(
         "artists",
         {
             "ignoredArticles": ignored_articles_str(),
@@ -192,8 +196,8 @@ def list_artists():
 
 
 @api_routing("/getArtist")
-def artist_info():
-    res = get_entity(Artist)
+async def artist_info():
+    res = await get_entity(Artist)
     albums = set(res.albums)
     albums |= {t.album for t in res.tracks}
 
@@ -206,12 +210,12 @@ def artist_info():
         a.as_subsonic_album(ctx) for a in sorted(albums, key=ctx.album_sort_key)
     ]
 
-    return request.formatter("artist", info)
+    return await request.formatter("artist", info)
 
 
 @api_routing("/getAlbum")
-def album_info():
-    res = get_entity(Album)
+async def album_info():
+    res = await get_entity(Album)
     tracks = list(res.tracks)
 
     ctx = serialization_context()
@@ -222,12 +226,12 @@ def album_info():
     info = res.as_subsonic_album(ctx)
     info["song"] = [t.as_subsonic_child(ctx) for t in tracks]
 
-    return request.formatter("album", info)
+    return await request.formatter("album", info)
 
 
 @api_routing("/getSong")
-def track_info():
-    res = get_entity(Track)
+async def track_info():
+    res = await get_entity(Track)
     ctx = serialization_context()
     ctx.add_tracks([res])
-    return request.formatter("song", res.as_subsonic_child(ctx))
+    return await request.formatter("song", res.as_subsonic_child(ctx))

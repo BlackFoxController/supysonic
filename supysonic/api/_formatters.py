@@ -7,25 +7,27 @@
 
 from xml.etree import ElementTree
 
-from flask import json, jsonify, make_response
+from quart import json, jsonify, make_response
 
 from . import API_VERSION
 
 
 class BaseFormatter:
     def make_response(self, elem, data):
+        print("BaseFormatter::make_response")
         raise NotImplementedError()
 
-    def make_error(self, code, message):
-        return self.make_response("error", {"code": code, "message": message})
+    async def make_error(self, code, message):
+        print("BaseFormatter::make_error")
+        return await self.make_response("error", {"code": code, "message": message})
 
-    def make_empty(self):
-        return self.make_response(None, None)
+    async def make_empty(self):
+        return await self.make_response(None, None)
 
-    def __call__(self, *args, **kwargs):
-        return self.make_response(*args, **kwargs)
+    async def __call__(self, *args, **kwargs):
+        return await self.make_response(*args, **kwargs)
 
-    error = make_error
+    error = property(make_error)
     empty = property(make_empty)
 
 
@@ -68,8 +70,11 @@ class JSONBaseFormatter(BaseFormatter):
 
 
 class JSONFormatter(JSONBaseFormatter):
-    def make_response(self, elem, data):
+    async def make_response(self, elem, data):
         rv = jsonify(self._subsonicify(elem, data))
+        rv = await make_response(rv)
+        rv.mimetype = "application/json"
+        # sure? =>
         rv.headers.add("Access-Control-Allow-Origin", "*")
         return rv
 
@@ -78,7 +83,7 @@ class JSONPFormatter(JSONBaseFormatter):
     def __init__(self, callback):
         self.__callback = callback
 
-    def make_response(self, elem, data):
+    async def make_response(self, elem, data):
         if not self.__callback:
             return jsonify(
                 self._subsonicify("error", {"code": 10, "message": "Missing callback"})
@@ -86,7 +91,7 @@ class JSONPFormatter(JSONBaseFormatter):
 
         rv = self._subsonicify(elem, data)
         rv = f"{self.__callback}({json.dumps(rv)})"
-        rv = make_response(rv)
+        rv = await make_response(rv)
         rv.mimetype = "application/javascript"
         return rv
 
@@ -131,7 +136,7 @@ class XMLFormatter(BaseFormatter):
             return str(value).lower()
         return str(value)
 
-    def make_response(self, elem, data):
+    async def make_response(self, elem, data):
         if (elem is None) != (data is None):
             raise ValueError("Expecting both elem and data or neither of them")
 
@@ -146,6 +151,6 @@ class XMLFormatter(BaseFormatter):
         root = ElementTree.Element("subsonic-response")
         self.__dict2xml(root, response)
 
-        rv = make_response(ElementTree.tostring(root))
+        rv = await make_response(ElementTree.tostring(root))
         rv.mimetype = "text/xml"
         return rv

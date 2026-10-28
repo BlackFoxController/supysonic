@@ -9,9 +9,9 @@ import binascii
 import uuid
 from functools import wraps
 
-from flask import request
+from quart import request
 
-from ..app.flask import app_layer
+from ..app.quart import app_layer
 from ..db.models import Folder, Track
 from ..db.serialization import SerializationContext
 from ..parsers import parse_bool, parse_float, parse_format, parse_int, parse_mail
@@ -35,10 +35,10 @@ MAX_TIMESTAMP_MS = 32503680000000
 
 def admin_only(f):
     @wraps(f)
-    def decorated(*args, **kwargs):
+    async def decorated(*args, **kwargs):
         if not request.user.admin:
             raise Forbidden()
-        return f(*args, **kwargs)
+        return await f(*args, **kwargs)
 
     return decorated
 
@@ -53,15 +53,16 @@ def decode_password(password):
         return password
 
 
-def get_bool(param, default=None, required=False):
+async def get_bool(param, default=None, required=False):
     """Read a boolean request parameter.
 
     Raises MissingParameter if it is absent and required, InvalidParameter if its
     value isn't a recognized boolean.
     """
+    req_values = await request.values
 
     try:
-        value = parse_bool(request.values.get(param))
+        value = parse_bool(req_values.get(param))
     except ValueError as e:
         raise InvalidParameter(param) from e
 
@@ -72,15 +73,16 @@ def get_bool(param, default=None, required=False):
     return value
 
 
-def get_int(param, default=None, min=None, max=None, required=False):
+async def get_int(param, default=None, min=None, max=None, required=False):
     """Read an integer request parameter, enforcing optional bounds.
 
     Raises MissingParameter if it is absent and required, InvalidParameter if its
     value isn't a valid integer or is out of bounds.
     """
+    req_values = await request.values
 
     try:
-        value = parse_int(request.values.get(param), min, max)
+        value = parse_int(req_values.get(param), min, max)
     except ValueError as e:
         raise InvalidParameter(param, e) from e
 
@@ -91,11 +93,12 @@ def get_int(param, default=None, min=None, max=None, required=False):
     return value
 
 
-def get_float(param, default=None, min=None, max=None, required=False):
+async def get_float(param, default=None, min=None, max=None, required=False):
     """Same as get_int, for floats."""
+    req_values = await request.values
 
     try:
-        value = parse_float(request.values.get(param), min, max)
+        value = parse_float(req_values.get(param), min, max)
     except ValueError as e:
         raise InvalidParameter(param, e) from e
 
@@ -106,15 +109,16 @@ def get_float(param, default=None, min=None, max=None, required=False):
     return value
 
 
-def get_format(param, default=None, required=False):
+async def get_format(param, default=None, required=False):
     """Read a transcoding format request parameter.
 
     Raises MissingParameter if it is absent and required, InvalidParameter if its
     value isn't a bare file extension.
     """
+    req_values = await request.values
 
     try:
-        value = parse_format(request.values.get(param))
+        value = parse_format(req_values.get(param))
     except ValueError as e:
         raise InvalidParameter(param, e) from e
 
@@ -125,15 +129,16 @@ def get_format(param, default=None, required=False):
     return value
 
 
-def get_mail(param, default=None, required=False):
+async def get_mail(param, default=None, required=False):
     """Read an email address request parameter.
 
     Raises MissingParameter if it is absent and required, InvalidParameter if its
     value doesn't look like an email address.
     """
+    req_values = await request.values
 
     try:
-        value = parse_mail(request.values.get(param))
+        value = parse_mail(req_values.get(param))
     except ValueError as e:
         raise InvalidParameter(param, e) from e
 
@@ -144,8 +149,9 @@ def get_mail(param, default=None, required=False):
     return value
 
 
-def get_entity(cls, param="id"):
-    return cls[get_entity_id(cls, request.values[param])]
+async def get_entity(cls, param="id"):
+    req_values = await request.values
+    return cls[get_entity_id(cls, req_values[param])]
 
 
 def get_entity_id(cls, eid):
@@ -193,9 +199,11 @@ def get_root_folder(id):
         raise NotFound("Folder") from e
 
 
-def get_music_folder():
+async def get_music_folder():
     """Return the root Folder given by the 'musicFolderId' parameter, if any."""
-    return get_root_folder(request.values.get("musicFolderId"))
+    req_values = await request.values
+
+    return get_root_folder(req_values.get("musicFolderId"))
 
 
 def serialization_context():
@@ -205,10 +213,10 @@ def serialization_context():
     )
 
 
-def get_paging(count_param, offset_param="offset", default=20):
+async def get_paging(count_param, offset_param="offset", default=20):
     """Read a (count, offset) pair of paging parameters."""
 
     return (
-        get_int(count_param, default, min=0, max=MAX_LIST_SIZE),
-        get_int(offset_param, 0, min=0),
+        await get_int(count_param, default, min=0, max=MAX_LIST_SIZE),
+        await get_int(offset_param, 0, min=0),
     )

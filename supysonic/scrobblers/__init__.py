@@ -8,7 +8,7 @@
 import logging
 from abc import ABC, abstractmethod
 
-from flask import Blueprint
+from quart import Blueprint
 
 from ..db.proxy import db
 from ..extensions import load_extensions

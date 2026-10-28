@@ -5,9 +5,9 @@
 #
 # Distributed under terms of the GNU AGPLv3 license.
 
-from flask import flash, redirect, render_template, request, url_for
+from quart import flash, redirect, render_template, request, url_for
 
-from ..app.flask import app_layer
+from ..app.quart import app_layer
 from ..daemon.exceptions import DaemonUnavailableError
 from ..db import Folder
 from ._blueprint import frontend
@@ -16,7 +16,7 @@ from ._helpers import admin_only
 
 @frontend.get("/folder")
 @admin_only
-def folder_index():
+async def folder_index():
     try:
         app_layer.daemon.get_scanning_progress()
         allow_scan = True
@@ -26,7 +26,7 @@ def folder_index():
             "The daemon is unavailable, can't scan from the web interface, use the CLI to do so.",
             "warning",
         )
-    return render_template(
+    return await render_template(
         "folders.html",
         folders=Folder.select().where(Folder.root),
         allow_scan=allow_scan,
@@ -35,13 +35,13 @@ def folder_index():
 
 @frontend.get("/folder/add")
 @admin_only
-def add_folder_form():
-    return render_template("addfolder.html")
+async def add_folder_form():
+    return await render_template("addfolder.html")
 
 
 @frontend.post("/folder/add")
 @admin_only
-def add_folder_post():
+async def add_folder_post():
     error = False
     name, path = map(request.form.get, ("name", "path"))
     if name in (None, ""):
@@ -51,13 +51,13 @@ def add_folder_post():
         flash("The path is required.", "danger")
         error = True
     if error:
-        return render_template("addfolder.html")
+        return await render_template("addfolder.html")
 
     try:
         app_layer.folders.add(name, path)
     except ValueError as e:
         flash(str(e), "danger")
-        return render_template("addfolder.html")
+        return await render_template("addfolder.html")
 
     flash(f"Folder '{name}' created. You should now run a scan", "success")
     return redirect(url_for("frontend.folder_index"))

@@ -29,7 +29,6 @@
             </svg></button></td>
         {%if allow_scan %}
           <td><form method="post" action="{{ url_for('frontend.scan_folder', id = folder.id) }}" class="d-inline">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="btn btn-outline-secondary btn-sm" aria-label="Scan folder">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-search bi-va-fix" aria-hidden="true" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Scan folder" viewBox="0 0 16 16">
                 <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"/>
@@ -45,7 +44,6 @@
 <a href="{{ url_for('frontend.add_folder_form') }}" class="btn btn-light">Add new folder</a>
 {% if allow_scan %}
   <form method="post" action="{{ url_for('frontend.scan_folder') }}" class="d-inline">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <button type="submit" class="btn btn-light">Scan all folders</button>
   </form>
 {% endif %}
@@ -62,7 +60,6 @@
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Nope</button>
         <form method="post" class="d-inline btn-ok-form">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit" class="btn btn-danger btn-ok">Yes, delete!</button>
         </form>
       </div>

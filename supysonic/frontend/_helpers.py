@@ -8,14 +8,14 @@
 
 from functools import wraps
 
-from flask import flash, redirect, request, session, url_for
+from quart import flash, redirect, request, session, url_for
 
-from ..app.flask import app_layer
+from ..app.quart import app_layer
 from ..db.models import User
 from ..parsers import FALSE_VALUES
 
 
-def login_check():
+async def login_check():
     request.user = None
     should_login = True
     if session.get("userid"):
@@ -27,7 +27,7 @@ def login_check():
             session.clear()
 
     if should_login and request.endpoint != "frontend.login":
-        flash("Please login")
+        # await flash("Please login")
         return redirect(url_for("frontend.login"))
 
 
@@ -47,10 +47,10 @@ def parse_checkbox(form, name):
 
 def admin_only(f):
     @wraps(f)
-    def decorated_func(*args, **kwargs):
+    async def decorated_func(*args, **kwargs):
         if not request.user or not request.user.admin:
             return redirect(url_for("frontend.index"))
-        return f(*args, **kwargs)
+        return await f(*args, **kwargs)
 
     return decorated_func
 
@@ -65,9 +65,9 @@ def _resolve_user(uid):
     try:
         return app_layer.users.get(uid), None
     except ValueError as e:
-        flash(str(e), "danger")
+        return flash(str(e), "danger")
     except User.DoesNotExist:
-        flash("No such user", "danger")
+        return flash("No such user", "danger")
 
     return None, redirect(url_for("frontend.index"))
 
@@ -91,7 +91,7 @@ def _user_injector(resolve, arg="uid"):
 
     def decorator(f):
         @wraps(f)
-        def decorated_func(*args, **kwargs):
+        async def decorated_func(*args, **kwargs):
             if kwargs:
                 uid = kwargs[arg]
             else:
@@ -106,7 +106,7 @@ def _user_injector(resolve, arg="uid"):
             else:
                 args = (uid, user)
 
-            return f(*args, **kwargs)
+            return await f(*args, **kwargs)
 
         return decorated_func
 

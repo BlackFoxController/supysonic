@@ -7,9 +7,9 @@
 
 import logging
 
-from flask import request
+from quart import request
 
-from ..app.flask import app_layer
+from ..app.quart import app_layer
 from ..daemon.exceptions import DaemonUnavailableError
 from ..db.models import Track
 from ._blueprint import api_routing
@@ -20,16 +20,18 @@ logger = logging.getLogger(__name__)
 
 
 @api_routing("/jukeboxControl")
-def jukebox_control():
+async def jukebox_control():
     if not request.user.jukebox and not request.user.admin:
         raise Forbidden()
 
-    action = request.values["action"]
+    req_values = await request.values
 
-    index = get_int("index", min=0)
-    offset = get_int("offset", min=0)
-    id = request.values.getlist("id")
-    gain = get_float("gain", min=0, max=1)
+    action = req_values["action"]
+
+    index = await get_int("index", min=0)
+    offset = await get_int("offset", min=0)
+    id = req_values.getlist("id")
+    gain = await get_float("gain", min=0, max=1)
 
     if action not in (
         "get",
@@ -93,6 +95,6 @@ def jukebox_control():
         ctx = serialization_context()
         ctx.add_tracks(playlist)
         rv["entry"] = [t.as_subsonic_child(ctx) for t in playlist]
-        return request.formatter("jukeboxPlaylist", rv)
+        return await request.formatter("jukeboxPlaylist", rv)
     else:
-        return request.formatter("jukeboxStatus", rv)
+        return await request.formatter("jukeboxStatus", rv)

@@ -6,14 +6,14 @@
 #
 # Distributed under terms of the GNU AGPLv3 license.
 
-from flask import (
+from quart import (
     Blueprint,
     flash,
     request,
 )
 
 from .. import DOWNLOAD_URL, VERSION
-from ..app.flask import app_layer
+from ..app.quart import app_layer
 from ..daemon.exceptions import DaemonUnavailableError
 from ._helpers import login_check
 
@@ -22,12 +22,12 @@ frontend.before_request(login_check)
 
 
 @frontend.context_processor
-def inject_metadata():
+async def inject_metadata():
     return {"version": VERSION, "download_url": DOWNLOAD_URL}
 
 
 @frontend.before_request
-def scan_status():
+async def scan_status():
     if not request.user or not request.user.admin:
         return
 

@@ -6,16 +6,15 @@
 #
 # Distributed under terms of the GNU AGPLv3 license.
 
-from flask import request
+from quart import request
 
 from ._blueprint import api_routing
 
-
 @api_routing("/ping")
-def ping():
-    return request.formatter.empty
-
+async def ping():
+    return await request.formatter.empty
+    # return await request.formatter(None, None)
 
 @api_routing("/getLicense")
-def license():
-    return request.formatter("license", {"valid": True})
+async def license():
+    return await request.formatter("license", {"valid": True})

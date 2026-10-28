@@ -10,7 +10,6 @@
 {%- set uid = 'me' if request.user.id == user.id else user.id -%}
 {%- set link = scrobbler.link(user) -%}
 <form method="post" action="{{ url_for('lastfm.unlink', uid = uid) }}">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <div class="input-group">
     <span class="input-group-text">LastFM status</span>
     {% if link %}

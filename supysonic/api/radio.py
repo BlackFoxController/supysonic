@@ -5,7 +5,7 @@
 #
 # Distributed under terms of the GNU AGPLv3 license.
 
-from flask import request
+from quart import request
 
 from ..db import RadioStation
 from ._blueprint import api_routing
@@ -14,21 +14,23 @@ from ._helpers import get_entity
 
 
 @api_routing("/getInternetRadioStations")
-def get_radio_stations():
+async def get_radio_stations():
     query = RadioStation.select().order_by(RadioStation.name)
-    return request.formatter(
+    return await request.formatter(
         "internetRadioStations",
         {"internetRadioStation": [p.as_subsonic_station() for p in query]},
     )
 
 
 @api_routing("/createInternetRadioStation")
-def create_radio_station():
+async def create_radio_station():
     if not request.user.admin:
         raise Forbidden()
 
+    req_values = await request.values
+
     stream_url, name, homepage_url = map(
-        request.values.get, ("streamUrl", "name", "homepageUrl")
+        req_values.get, ("streamUrl", "name", "homepageUrl")
     )
 
     if stream_url and name:
@@ -36,18 +38,20 @@ def create_radio_station():
     else:
         raise MissingParameter("streamUrl or name")
 
-    return request.formatter.empty
+    return await request.formatter.empty
 
 
 @api_routing("/updateInternetRadioStation")
-def update_radio_station():
+async def update_radio_station():
     if not request.user.admin:
         raise Forbidden()
 
-    res = get_entity(RadioStation)
+    req_values = await request.values
+
+    res = await get_entity(RadioStation)
 
     stream_url, name, homepage_url = map(
-        request.values.get, ("streamUrl", "name", "homepageUrl")
+        req_values.get, ("streamUrl", "name", "homepageUrl")
     )
     if stream_url and name:
         res.stream_url = stream_url
@@ -60,15 +64,15 @@ def update_radio_station():
     else:
         raise MissingParameter("streamUrl or name")
 
-    return request.formatter.empty
+    return await request.formatter.empty
 
 
 @api_routing("/deleteInternetRadioStation")
-def delete_radio_station():
+async def delete_radio_station():
     if not request.user.admin:
         raise Forbidden()
 
-    res = get_entity(RadioStation)
+    res = await get_entity(RadioStation)
     res.delete_instance()
 
-    return request.formatter.empty
+    return await request.formatter.empty

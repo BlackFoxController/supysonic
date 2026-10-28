@@ -5,9 +5,9 @@
 #
 # Distributed under terms of the GNU AGPLv3 license.
 
-from flask import flash, redirect, request, url_for
+from quart import flash, redirect, request, url_for
 
-from ...app.flask import app_layer
+from ...app.quart import app_layer
 from ...frontend._helpers import me_or_uuid
 from .. import make_blueprint
 from ..exceptions import ScrobblerError

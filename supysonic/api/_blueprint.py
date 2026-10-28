@@ -7,11 +7,11 @@
 
 import logging
 
-from flask import Blueprint, request
+from quart import Blueprint, request
 from peewee import DoesNotExist, IntegrityError
 from werkzeug.exceptions import BadRequestKeyError
 
-from ..app.flask import app_layer
+from ..app.quart import app_layer
 from ..db import ClientPrefs
 from ._exceptions import (
     GenericError,
@@ -27,7 +27,6 @@ from ._helpers import decode_password
 api = Blueprint("api", __name__)
 logger = logging.getLogger(__name__)
 
-
 def api_routing(endpoint):
     def decorator(func):
         viewendpoint = f"{endpoint}.view"
@@ -36,7 +35,6 @@ def api_routing(endpoint):
         return func
 
     return decorator
-
 
 def api_errorhandler(exc_type):
     """Register func as the handler for exc_type, both for Flask's own dispatch and for
@@ -52,11 +50,13 @@ def api_errorhandler(exc_type):
 
     return decorator
 
-
 @api.before_request
-def set_formatter():
+async def set_formatter():
     """Return a function to create the response."""
-    f, callback = map(request.values.get, ("f", "callback"))
+
+    req_values = await request.values
+
+    f, callback = map(req_values.get, ("f", "callback"))
     if f == "jsonp":
         request.formatter = JSONPFormatter(callback)
     elif f == "json":
@@ -64,18 +64,19 @@ def set_formatter():
     else:
         request.formatter = XMLFormatter()
 
-
 @api.before_request
-def authorize():
+async def authorize():
     username = None
     password = None
+
+    req_values = await request.values
 
     if request.authorization:
         username = request.authorization.username
         password = request.authorization.password
     else:
-        username = request.values["u"]
-        password = request.values["p"]
+        username = req_values["u"]
+        password = req_values["p"]
         password = decode_password(password)
 
     user = app_layer.users.try_auth(username, password)
@@ -87,10 +88,10 @@ def authorize():
 
     request.user = user
 
-
 @api.before_request
-def set_client_prefs():
-    client = request.values["c"]
+async def set_client_prefs():
+    req_values = await request.values
+    client = req_values["c"]
     try:
         request.client = ClientPrefs[request.user, client]
     except ClientPrefs.DoesNotExist:
@@ -101,7 +102,6 @@ def set_client_prefs():
             # the ClientPrefs. Issue #220
             request.client = ClientPrefs[request.user, client]
 
-
 @api_errorhandler(ValueError)
 def value_error(e):
     # Last resort: parameter parsing is supposed to raise InvalidParameter itself, so
@@ -110,14 +110,12 @@ def value_error(e):
     logger.exception("Unhandled ValueError", exc_info=e)
     return GenericError("Invalid request")
 
-
 @api_errorhandler(BadRequestKeyError)
 def key_error(e):
     # BadRequestKeyError derives from KeyError, and the mapping raising it passes the
     # missing key as the only argument. str(e) would give the generic HTTP 400
     # description instead of the key name.
     return MissingParameter(e.args[0] if e.args else None)
-
 
 @api_errorhandler(DoesNotExist)
 def object_not_found(e):
@@ -127,14 +125,17 @@ def object_not_found(e):
     logger.debug("Not found: %s", e.__class__.__name__)
     return NotFound("The requested data")
 
+@api.errorhandler(400)
+def generic_error(e):  # pragma: nocover
+    logger.exception("Unhandled exception 400", exc_info=e)
+    return ServerError("Here is 400 error")
 
 @api.errorhandler(500)
 def generic_error(e):  # pragma: nocover
     logger.exception("Unhandled exception", exc_info=e)
     return ServerError("Server error")
 
-
 # @api.errorhandler(404)
 @api.route("/<path:invalid>", methods=["GET", "POST"])  # blueprint 404 workaround
-def not_found(*args, **kwargs):
+async def not_found(*args, **kwargs):
     return GenericError("Unknown method"), 404

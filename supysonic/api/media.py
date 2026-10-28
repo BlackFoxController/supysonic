@@ -14,11 +14,11 @@ import subprocess
 from datetime import datetime
 from io import BytesIO
 
-from flask import Response, request, send_file
+from quart import Response, request, send_file
 from PIL import Image
 from zipstream import ZipStream
 
-from ..app.flask import app_layer
+from ..app.quart import app_layer
 from ..cache import CacheMiss
 from ..covers import announce_covers
 from ..covers._files import EXTENSIONS
@@ -60,17 +60,23 @@ def prepare_transcoding_cmdline(
 
 
 @api_routing("/stream")
-def stream_media():
-    res = get_entity(Track)
+async def stream_media():
+    print ('stream')
 
-    if "timeOffset" in request.values:
+    req_values = await request.values
+
+    res = await get_entity(Track)
+
+    print (res.path)
+
+    if "timeOffset" in req_values:
         raise UnsupportedParameter("timeOffset")
-    if "size" in request.values:
+    if "size" in req_values:
         raise UnsupportedParameter("size")
 
-    maxBitRate = get_int("maxBitRate", min=0)
-    estimateContentLength = get_bool("estimateContentLength", False)
-    request_format = get_format("format")
+    maxBitRate = await get_int("maxBitRate", min=0)
+    estimateContentLength = await get_bool("estimateContentLength", False)
+    request_format = await get_format("format")
 
     src_suffix = res.suffix()
     dst_suffix = res.suffix()
@@ -206,12 +212,14 @@ def stream_media():
     user.last_play_date = datetime.now()
     user.save()
 
-    return response
+    return await response
 
 
 @api_routing("/download")
-def download_media():
-    cls, eid = resolve_child_id(request.values["id"])
+async def download_media():
+    req_values = await request.values
+
+    cls, eid = resolve_child_id(req_values["id"])
 
     if cls is Track:
         try:
@@ -322,16 +330,18 @@ def _open_cover(cover):
 
 
 @api_routing("/getCoverArt")
-def cover_art():
+async def cover_art():
     cache = app_layer.cache
 
-    eid = request.values["id"]
+    req_values = await request.values
+
+    eid = req_values["id"]
     cover = _get_cover(_get_cover_entity(eid))
 
     if cover is None:
         raise NotFound("Cover art")
 
-    size = get_int("size", min=1)
+    size = await get_int("size", min=1)
     if size is None:
         # Flask derives the mimetype from the extension of a file having a
         # meaningful one. Otherwise, as for raw data, derive it from the contents.
@@ -361,16 +371,18 @@ def cover_art():
 
 
 @api_routing("/getLyrics")
-def lyrics():
-    artist = request.values["artist"]
-    title = request.values["title"]
+async def lyrics():
+    req_values = await request.values
+
+    artist = req_values["artist"]
+    title = req_values["title"]
 
     for provider in app_layer.lyrics_providers:
         found = provider.get_lyrics(artist, title)
         if found is not None:
-            return request.formatter(
+            return await request.formatter(
                 "lyrics",
                 {"artist": found.artist, "title": found.title, "value": found.text},
             )
 
-    return request.formatter("lyrics", {})
+    return await request.formatter("lyrics", {})

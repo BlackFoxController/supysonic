@@ -16,7 +16,6 @@
 {% if playlist.user.id == request.user.id %}
 <h3>Edit</h3>
 <form method="post">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <div class="table-responsive">
     <table id="playlist" class="table align-middle">
       <thead>
