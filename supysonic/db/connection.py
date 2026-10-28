@@ -17,12 +17,17 @@ from .exceptions import (
 from .migration import create_or_upgrade_schema
 from .proxy import db
 
+db_uri = None
 
 def init_database(database_uri):
     if db.obj is not None:
         raise DatabaseAlreadyInitializedError()
 
     uri = urlparse(database_uri)
+
+    global db_uri
+    db_uri = uri
+
     args = parseresult_to_dict(uri)
 
     if uri.scheme.startswith("mysql"):
@@ -55,7 +60,8 @@ def release_database():
 def open_connection(reuse=False):
     if db.obj is None:
         raise DatabaseNotInitializedError()
-
+    if db_uri is not None and db_uri.scheme.startswith("sqlite"):
+        reuse = True
     return db.connect(reuse)
 
 

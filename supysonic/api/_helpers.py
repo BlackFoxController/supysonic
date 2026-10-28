@@ -84,7 +84,8 @@ async def get_int(param, default=None, min=None, max=None, required=False):
     try:
         value = parse_int(req_values.get(param), min, max)
     except ValueError as e:
-        raise InvalidParameter(param, e) from e
+        value = max
+        # raise InvalidParameter(param, e) from e
 
     if value is None:
         if required:
